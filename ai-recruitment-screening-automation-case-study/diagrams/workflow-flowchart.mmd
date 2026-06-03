@@ -1,0 +1,71 @@
+%% AI Recruitment Screening & ATS Automation Platform
+%% Detailed Workflow Flowchart — Step-by-Step Execution
+
+flowchart TD
+
+    START(["🎯 Candidate Applies in ATS"]) --> WEBHOOK["1️⃣ Webhook Trigger<br/>Receive candidate_created event"]
+
+    WEBHOOK --> NORMALIZE["2️⃣ Normalize Candidate Data<br/>Flatten payload, clean job title,<br/>extract email/phone/resume URL"]
+
+    NORMALIZE --> CHECK_CV{"3️⃣ Has Resume URL?"}
+
+    %% ============== PATH A: WITH RESUME ==============
+    CHECK_CV -- "Yes — Path A" --> FIND_FOLDER["4️⃣ Drive: Find Job Folder<br/>Search by sanitized job title"]
+
+    FIND_FOLDER --> FOLDER_EXISTS{"5️⃣ Folder Found?"}
+
+    FOLDER_EXISTS -- "Yes" --> DOWNLOAD["7️⃣ Download Resume<br/>Fetch from presigned S3 URL"]
+    FOLDER_EXISTS -- "No" --> CREATE_FOLDER["6️⃣ Create Folder<br/>New folder under parent"]
+    CREATE_FOLDER --> DOWNLOAD
+
+    DOWNLOAD --> UPLOAD["8️⃣ Upload to Drive<br/>Save PDF in job folder"]
+
+    UPLOAD --> CONVERT["9️⃣ Convert to Google Doc<br/>Copy via Drive API"]
+
+    CONVERT --> EXPORT["🔟 Export as Plain Text<br/>via Drive /export endpoint"]
+
+    EXPORT --> GMAIL_A["1️⃣1️⃣ Search Gmail Inboxes<br/>3 recruiter accounts<br/>Filter: to:candidate_email"]
+
+    GMAIL_A --> LOOKUP_A["1️⃣2️⃣ Sheets: Lookup Duplicate<br/>Check if EMAIL ID exists"]
+
+    LOOKUP_A --> COUNT_A["1️⃣3️⃣ Count Real Emails<br/>Filter out empty placeholders"]
+
+    COUNT_A --> AI_CALL["1️⃣4️⃣ AI Analysis<br/>LLM extracts:<br/>• Qualification<br/>• Experience<br/>• Country<br/>• Certifications<br/>• Red flag signals"]
+
+    AI_CALL --> PARSE["1️⃣5️⃣ Parse JSON Response<br/>Validate structure, fallback regex"]
+
+    PARSE --> SCORE_CALC["1️⃣6️⃣ Calculate Score<br/>Base + signals - email_count<br/>Clamp 0–100"]
+
+    SCORE_CALC --> APPEND_A["1️⃣7️⃣ Append Row to Tracking Sheet<br/>13 columns: date, name (hyperlink),<br/>summary, score, country, etc."]
+
+    %% ============== PATH B: WITHOUT RESUME ==============
+    CHECK_CV -- "No — Path B" --> GMAIL_B["1️⃣8️⃣ Search Gmail Inboxes<br/>(same 3 recruiter accounts)"]
+
+    GMAIL_B --> LOOKUP_B["1️⃣9️⃣ Sheets: Lookup Duplicate"]
+
+    LOOKUP_B --> COUNT_B["2️⃣0️⃣ Count Real Emails"]
+
+    COUNT_B --> APPEND_B["2️⃣1️⃣ Append Minimal Row<br/>Marked '--No CV--'<br/>Score = '--'"]
+
+    %% ============== CONVERGE ==============
+    APPEND_A --> END_NODE(["✅ Candidate Logged<br/>Ready for Recruiter Review"])
+    APPEND_B --> END_NODE
+
+    %% ============== STYLING ==============
+    classDef trigger fill:#FF6D00,stroke:#B34700,color:#fff,stroke-width:2px
+    classDef code fill:#1976D2,stroke:#0D47A1,color:#fff,stroke-width:2px
+    classDef drive fill:#0F9D58,stroke:#0B7B45,color:#fff,stroke-width:2px
+    classDef ai fill:#9C27B0,stroke:#6A1B7A,color:#fff,stroke-width:2px
+    classDef sheets fill:#34A853,stroke:#1E7C36,color:#fff,stroke-width:2px
+    classDef gmail fill:#EA4335,stroke:#B31412,color:#fff,stroke-width:2px
+    classDef decision fill:#F9A825,stroke:#C77800,color:#000,stroke-width:2px
+    classDef endpoint fill:#424242,stroke:#1B1B1B,color:#fff,stroke-width:3px
+
+    class WEBHOOK trigger
+    class NORMALIZE,COUNT_A,COUNT_B,PARSE,SCORE_CALC code
+    class FIND_FOLDER,CREATE_FOLDER,DOWNLOAD,UPLOAD,CONVERT,EXPORT drive
+    class AI_CALL ai
+    class LOOKUP_A,LOOKUP_B,APPEND_A,APPEND_B sheets
+    class GMAIL_A,GMAIL_B gmail
+    class CHECK_CV,FOLDER_EXISTS decision
+    class START,END_NODE endpoint

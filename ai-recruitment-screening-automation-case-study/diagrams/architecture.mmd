@@ -1,0 +1,69 @@
+%% AI Recruitment Screening & ATS Automation Platform
+%% System Architecture — High-Level Component View
+
+flowchart TB
+
+    %% ============== SOURCES ==============
+    subgraph SOURCE["📬 Event Source"]
+        ATS["Workable ATS<br/>Candidate Applied"]
+    end
+
+    %% ============== ORCHESTRATION ==============
+    subgraph ORCH["⚙️ Self-Hosted n8n on Hostinger VPS"]
+        TRIG["Webhook Trigger<br/>(candidate_created)"]
+        NORM["Candidate Normalization<br/>(JavaScript)"]
+        ROUTE{"Resume<br/>Present?"}
+        FOLDER["Folder Provisioning<br/>(Find or Create)"]
+        DOC["Document Pipeline<br/>(PDF → Doc → Text)"]
+        AI["AI Analysis<br/>(LLM Signal Extraction)"]
+        SCORE["Scoring Engine<br/>(Deterministic JS)"]
+        DUPE["Duplicate Detection<br/>(Email Lookup)"]
+        COMM["Communication Tracking<br/>(3 Recruiter Inboxes)"]
+        WRITE["Sheet Append<br/>(Enriched Record)"]
+    end
+
+    %% ============== EXTERNAL SERVICES ==============
+    subgraph EXT["☁️ External Services"]
+        DRIVE["Google Drive<br/>(Resume Archive)"]
+        OPENROUTER["OpenRouter<br/>(LLM Gateway)"]
+        GMAIL["Gmail × 3<br/>(Recruiter Inboxes)"]
+        SHEETS["Google Sheets<br/>(Tracking DB)"]
+    end
+
+    %% ============== OUTPUT ==============
+    subgraph OUT["👥 Output"]
+        RECRUITER["Recruiter Review<br/>Ranked Candidates"]
+    end
+
+    %% ============== FLOW ==============
+    ATS -- "Webhook POST" --> TRIG
+    TRIG --> NORM
+    NORM --> ROUTE
+    ROUTE -- "Yes (Path A)" --> FOLDER
+    ROUTE -- "No (Path B)" --> COMM
+    FOLDER <--> DRIVE
+    FOLDER --> DOC
+    DOC <--> DRIVE
+    DOC --> COMM
+    COMM <--> GMAIL
+    COMM --> DUPE
+    DUPE <--> SHEETS
+    DUPE --> AI
+    AI <--> OPENROUTER
+    AI --> SCORE
+    SCORE --> WRITE
+    WRITE --> SHEETS
+    SHEETS --> RECRUITER
+
+    %% ============== STYLING ==============
+    classDef source fill:#4A90E2,stroke:#2E5C8A,color:#fff,stroke-width:2px
+    classDef orch fill:#FF6D00,stroke:#B34700,color:#fff,stroke-width:2px
+    classDef ext fill:#9C27B0,stroke:#6A1B7A,color:#fff,stroke-width:2px
+    classDef out fill:#2E7D32,stroke:#1B5E20,color:#fff,stroke-width:2px
+    classDef decision fill:#F9A825,stroke:#C77800,color:#000,stroke-width:2px
+
+    class ATS source
+    class TRIG,NORM,FOLDER,DOC,AI,SCORE,DUPE,COMM,WRITE orch
+    class ROUTE decision
+    class DRIVE,OPENROUTER,GMAIL,SHEETS ext
+    class RECRUITER out
